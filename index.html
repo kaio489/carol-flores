@@ -161,6 +161,7 @@ body.lock{overflow:hidden}
 .br{display:grid;grid-template-columns:72px 1fr 30px;align-items:center;gap:8px;font:.75rem var(--ui);margin:5px 0}.br i{height:10px;border-radius:9px;background:var(--ouro)}
 .adtabs{display:flex;gap:8px;padding:12px 20px;overflow-x:auto}.admb{max-width:760px;margin:auto;padding:0 20px 40px}
 .admb .add{display:inline-flex;margin-top:8px}.admb .ord .btn{margin-top:8px}.sel{width:100%;height:48px;border-radius:12px;border:1px solid var(--line);padding:0 12px;font:inherit;background:var(--nude)}
+#wag{width:min(92vw,420px);border-radius:20px;margin:auto;overflow:hidden}
 </style>
 </head>
 <body>
@@ -252,6 +253,7 @@ body.lock{overflow:hidden}
   <div class="chips" id="chips"></div><div class="grid" id="grid"></div>
 </dialog>
 
+<dialog id="wag"></dialog>
 <dialog class="full" id="adm"></dialog>
 <dialog class="drawer" id="cart"><div class="cv" id="pane"></div></dialog>
 
@@ -509,6 +511,17 @@ adm.addEventListener("click",e=>{const t=e.target,b=k=>t.closest(`[${k}]`);let x
 adm.addEventListener("input",e=>{if(e.target.id==="sm")smsg=e.target.value});
 adm.addEventListener("change",e=>{if(e.target.id==="sd"){sdi=+e.target.value;smsg=SPEC[sdi][1];admShow()}});
 $("#adm-open").onclick=()=>{admShow();adm.showModal()};
+
+/* todo botão de WhatsApp pede nome e telefone antes */
+const wag=$("#wag");let wurl="";
+const wform=m=>`<div class="ch"><div><h2>Antes de continuar</h2><p>Informe seu nome e telefone para falar com a Carol Flores no WhatsApp.</p></div><button class="cx" data-close aria-label="Fechar"><svg class="ic"><use href="#i-x"/></svg></button></div><div class="cb"><div class="fg"><label class="ff c6"><input id="gn" placeholder=" " autocomplete="name" value="${esc(m.nome)}"><span>Seu nome *</span></label><label class="ff c6"><input id="gt" type="tel" inputmode="tel" autocomplete="tel" placeholder=" " value="${esc(m.tel)}"><span>Telefone *</span></label></div></div><div class="cf"><button class="btn btn--wa big" data-gsend><svg class="ic fill"><use href="#i-wa"/></svg>Ir para o WhatsApp</button></div>`;
+document.querySelectorAll("[data-wa]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();wurl=wa(a.dataset.msg);wag.innerHTML=wform(ls.get("cf:me",{}));wag.showModal()}));
+wag.addEventListener("input",e=>{if(e.target.id==="gt")e.target.value=maskPhone(e.target.value);e.target.classList.remove("err")});
+wag.addEventListener("click",e=>{if(!e.target.closest("[data-gsend]"))return;
+ const n=$("#gn",wag),t=$("#gt",wag),bad=[];if(!n.value.trim())bad.push(n);if(t.value.replace(/\D/g,"").length<10)bad.push(t);
+ if(bad.length){bad.forEach(i=>i.classList.add("err"));bad[0].focus();return toast("Preencha nome e telefone")}
+ const me={nome:n.value.trim(),tel:t.value};ls.set("cf:me",me);crm.lead(me.nome,me.tel);crm.log("contact");
+ window.open(wurl,"_blank","noopener");wag.close()});
 
 /* flores realistas em SVG (sem filtros, só degradês e camadas — leve para animar) */
 function floraDefs(){
