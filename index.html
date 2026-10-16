@@ -454,16 +454,25 @@ async function load(){
 saveCart();load();
 
 /* ===== CRM + PAINEL (dados salvos neste navegador) ===== */
+const CFB={url:"https://uuzdbfizpozdacygnzkj.supabase.co",key:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1emRiZml6cG96ZGFjeWduemtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyNjIyMzMsImV4cCI6MjEwMzgzODIzM30.aZMzQPD06GeNuXHpSlRzSl-vY6duhBr-jrwVUGd0kOE"};
+const crpc=(fn,a)=>fetch(CFB.url+"/rest/v1/rpc/"+fn,{method:"POST",headers:{apikey:CFB.key,Authorization:"Bearer "+CFB.key,"Content-Type":"application/json"},body:JSON.stringify(a),keepalive:true}).then(r=>r.ok?r.text().then(t=>t?JSON.parse(t):null):Promise.reject(r.status));
 const crm={d:ls.get("cf:crm",{ev:[],cl:{}}),save(){ls.set("cf:crm",this.d)},
- log(k,x){this.d.ev.push({t:Date.now(),k,...x});this.save()},
- lead(nome,tel,x){const id=tel.replace(/\D/g,""),c=this.d.cl[id]||(this.d.cl[id]={first:Date.now(),n:0,tot:0});Object.assign(c,{nome:nome.trim(),tel},x,{last:Date.now()});(c.h||(c.h=[])).push(Date.now());this.save()},
- buy(d,s,code){this.lead(d.nome,d.tel);const c=this.d.cl[d.tel.replace(/\D/g,"")];c.n++;c.tot+=s.total||0;this.log("buy",{v:s.total||0,code})}};
+ log(k,x){this.d.ev.push({t:Date.now(),k,...x});this.save();crpc("cf_track",{p_k:k,p_tel:x&&x.tel||null,p_v:x&&x.v||0,p_code:x&&x.code||null}).catch(()=>{})},
+ lead(nome,tel,x){const id=tel.replace(/\D/g,""),c=this.d.cl[id]||(this.d.cl[id]={first:Date.now(),n:0,tot:0});Object.assign(c,{nome:nome.trim(),tel},x,{last:Date.now()});(c.h||(c.h=[])).push(Date.now());this.save();crpc("cf_track",{p_k:"lead",p_nome:nome,p_tel:tel}).catch(()=>{})},
+ buy(d,s,code){this.lead(d.nome,d.tel);const c=this.d.cl[d.tel.replace(/\D/g,"")];c.n++;c.tot+=s.total||0;this.log("buy",{v:s.total||0,code,tel:d.tel})}};
 try{if(!sessionStorage.getItem("cf:v")){sessionStorage.setItem("cf:v",1);crm.log("visit")}}catch{}
-const AD={u:"carolflores",p:"flores"},DAYS=["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"],MS=30*864e5;
+let CRED=null;try{CRED=JSON.parse(sessionStorage.getItem("cf:cr")||"null")}catch{}
+const pxPush=()=>crpc("cf_admin_set",{p_u:CRED[0],p_p:CRED[1],p_key:"px",p_val:PX}).catch(()=>toast("Não foi possível salvar online"));
+async function admSync(){const r=await crpc("cf_admin_data",{p_u:CRED[0],p_p:CRED[1]});crm.d={ev:r.ev,cl:r.cl};crm.save()}
+async function admLogin(u,p){try{await crpc("cf_admin_data",{p_u:u,p_p:p})}catch(e){return toast(e===400||e===404||e===401||e===403?"Login ou senha incorretos":"Sem conexão com o servidor")}
+ CRED=[u,p];try{sessionStorage.setItem("cf:cr",JSON.stringify(CRED))}catch{}
+ const L=crm.d;if(!ls.get("cf:imp",0)&&(Object.keys(L.cl).length||L.ev.length)){try{await crpc("cf_admin_import",{p_u:u,p_p:p,p_cl:L.cl,p_ev:L.ev});ls.set("cf:imp",1)}catch{}}
+ try{await admSync()}catch{}admShow()}
+const DAYS=["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"],MS=30*864e5;
 const SPEC=[["Dia da Mulher","Olá, {nome}! 🌷 Hoje é Dia da Mulher e a Carol Flores preparou buquês especiais para celebrar. Quer ver as opções?"],["Dia das Mães","Olá, {nome}! 💐 O Dia das Mães está chegando. A Carol Flores montou buquês lindos para presentear quem você ama. Posso te ajudar a escolher?"],["Dia dos Namorados","Olá, {nome}! ❤️ Dia dos Namorados é dia de flores. Temos buquês de rosas e lírios te esperando na Carol Flores!"],["Natal / Ano Novo","Olá, {nome}! 🎄 A Carol Flores deseja boas festas! Temos buquês e arranjos especiais para suas ceias e presentes."],["Outra data","Olá, {nome}! 🌸 A Carol Flores tem novidades no catálogo para uma data especial. Quer dar uma olhada?"]];
 const REM="Olá, {nome}! 🌷 Faz um tempinho que não conversamos. A Carol Flores tem novidades no catálogo. Posso te ajudar com um buquê?";
 let tab="res",edit=null,sdi=0,smsg=SPEC[0][1];
-const adm=$("#adm"),ON=()=>{try{return sessionStorage.getItem("cf:adm")==="1"}catch{return false}};
+const adm=$("#adm"),ON=()=>!!CRED;
 const wl=(tel,m)=>{let d=String(tel).replace(/\D/g,"");if(d.length<=11)d="55"+d;return`https://wa.me/${d}?text=${encodeURIComponent(m)}`};
 const fn=c=>esc(c.nome).split(" ")[0],bars=(a,l)=>{const m=Math.max(1,...a);return a.map((v,i)=>`<div class="br"><span>${l[i]}</span><i style="width:${v/m*100}%"></i><b>${v}</b></div>`).join("")};
 const alerts=()=>Object.entries(crm.d.cl).filter(([k,c])=>Date.now()-Math.max(c.last||0,c.lc||0)>=MS);
@@ -493,29 +502,30 @@ async function psave(){const g=i=>$("#"+i,adm),name=g("pn").value.trim();if(!nam
  const v=g("pp").value,o={name,category:g("pc").value.trim(),description:g("pd").value.trim(),price:v===""?null:+v},f=g("pf").files[0];if(f)o.image=await rsz(f);
  if(edit){if(SEED.some(s=>s.id===edit))PX.edit[edit]={...PX.edit[edit],...o};else{const i=PX.add.findIndex(s=>s.id===edit);PX.add[i]={...PX.add[i],...o}}}
  else{if(!f)return toast("Escolha uma foto");PX.add.push({id:"n-"+Date.now(),...o})}
- ls.set("cf:px",PX);products=applyProd();renderTrack();edit=null;admShow();toast("Produto salvo")}
-adm.addEventListener("click",e=>{const t=e.target,b=k=>t.closest(`[${k}]`);let x;
- if(b("data-login")){if($("#lu").value.trim().toLowerCase()===AD.u&&$("#lp").value===AD.p){try{sessionStorage.setItem("cf:adm","1")}catch{}admShow()}else toast("Login ou senha incorretos")}
- else if(b("data-out")){try{sessionStorage.removeItem("cf:adm")}catch{}admShow()}
- else if(x=b("data-tab")){tab=x.dataset.tab;admShow()}
- else if(b("data-gal")){ls.set("cf:gal",!galOn());galApply();admShow()}
+ ls.set("cf:px",PX);pxPush();products=applyProd();renderTrack();edit=null;admShow();toast("Produto salvo")}
+adm.addEventListener("click",async e=>{const t=e.target,b=k=>t.closest(`[${k}]`);let x;
+ if(b("data-login"))admLogin($("#lu").value.trim(),$("#lp").value)
+ else if(b("data-out")){CRED=null;try{sessionStorage.removeItem("cf:cr")}catch{}admShow()}
+ else if(x=b("data-tab")){tab=x.dataset.tab;try{await admSync()}catch{}admShow()}
+ else if(b("data-gal")){const g=!galOn();ls.set("cf:gal",g);galApply();admShow();crpc("cf_admin_set",{p_u:CRED[0],p_p:CRED[1],p_key:"gal",p_val:g}).catch(()=>toast("Não foi possível salvar online"))}
  else if(b("data-psave"))psave();
  else if(b("data-pnew")){edit=null;admShow()}
  else if(x=b("data-pedit")){edit=x.dataset.pedit;admShow();adm.scrollTo(0,0)}
  else if(x=b("data-pdel")){const id=x.dataset.pdel;if(!confirm("Excluir este produto do catálogo?"))return;
   if(SEED.some(s=>s.id===id))PX.del.push(id);else PX.add=PX.add.filter(s=>s.id!==id);delete PX.edit[id];
-  ls.set("cf:px",PX);products=applyProd();renderTrack();admShow()}
- else if(x=b("data-sent")){crm.d.cl[x.dataset.sent].lc=Date.now();crm.save();setTimeout(admShow,400)}
+  ls.set("cf:px",PX);pxPush();products=applyProd();renderTrack();admShow()}
+ else if(x=b("data-sent")){crm.d.cl[x.dataset.sent].lc=Date.now();crm.save();crpc("cf_admin_lc",{p_u:CRED[0],p_p:CRED[1],p_tel:x.dataset.sent}).catch(()=>{});setTimeout(admShow,400)}
  else if(x=b("data-sp")){const c=crm.d.cl[x.dataset.sp];window.open(wl(c.tel,smsg.replace("{nome}",c.nome.split(" ")[0])),"_blank","noopener")}});
 adm.addEventListener("input",e=>{if(e.target.id==="sm")smsg=e.target.value});
 adm.addEventListener("change",e=>{if(e.target.id==="sd"){sdi=+e.target.value;smsg=SPEC[sdi][1];admShow()}});
-$("#adm-open").onclick=()=>{admShow();adm.showModal()};
+$("#adm-open").onclick=async()=>{if(CRED)try{await admSync()}catch{}admShow();adm.showModal()};
 
 /* modo galeria + botão flutuante */
 const GALERIA_PADRAO=false;
 const galOn=()=>{const v=ls.get("cf:gal",null);return v===null?GALERIA_PADRAO:!!v};
 const galApply=()=>{const g=galOn();document.body.classList.toggle("gal",g);document.querySelectorAll('a[href="#catalogo"],#catalogo h2.title').forEach(e=>e.textContent=g?"Galeria":"Catálogo")};galApply();
-{const f=$("#fab"),sc=()=>f.classList.toggle("on",scrollY>240);addEventListener("scroll",sc,{passive:true});sc()}
+$("#fab").classList.add("on");
+crpc("cf_get_settings",{}).then(r=>{if(!r)return;if(r.gal!==undefined){ls.set("cf:gal",!!r.gal);galApply()}if(r.px){Object.assign(PX,r.px);ls.set("cf:px",PX);products=applyProd();renderTrack()}}).catch(()=>{});
 /* todo botão de WhatsApp pede nome e telefone antes */
 const wag=$("#wag");let wurl="";
 const wform=m=>`<div class="ch"><div><h2>Quer deixar seu contato?</h2><p>É opcional. Se preencher, a Carol Flores te atende com mais agilidade.</p></div><button class="cx" data-close aria-label="Fechar"><svg class="ic"><use href="#i-x"/></svg></button></div><div class="cb"><div class="fg"><label class="ff c6"><input id="gn" placeholder=" " autocomplete="name" value="${esc(m.nome)}"><span>Seu nome (opcional)</span></label><label class="ff c6"><input id="gt" type="tel" inputmode="tel" autocomplete="tel" placeholder=" " value="${esc(m.tel)}"><span>Telefone (opcional)</span></label></div></div><div class="cf"><button class="btn btn--wa big" data-gsend><svg class="ic fill"><use href="#i-wa"/></svg>Ir para o WhatsApp</button></div>`;
