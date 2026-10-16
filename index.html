@@ -470,7 +470,7 @@ const crm={d:ls.get("cf:crm",{ev:[],cl:{}}),save(){ls.set("cf:crm",this.d)},
 try{if(!sessionStorage.getItem("cf:v")){sessionStorage.setItem("cf:v",1);crm.log("visit")}}catch{}
 let CRED=null;try{CRED=JSON.parse(sessionStorage.getItem("cf:cr")||"null")}catch{}
 const pxPush=()=>crpc("cf_admin_set",{p_u:CRED[0],p_p:CRED[1],p_key:"px",p_val:PX}).catch(()=>toast("Não foi possível salvar online"));
-async function admSync(){const r=await crpc("cf_admin_data",{p_u:CRED[0],p_p:CRED[1]});crm.d={ev:r.ev,cl:r.cl};crm.save()}
+async function admSync(){try{const r=await crpc("cf_admin_data",{p_u:CRED[0],p_p:CRED[1]});crm.d={ev:r.ev,cl:r.cl};crm.save()}catch(e){if(e===400||e===401||e===403){CRED=null;try{sessionStorage.removeItem("cf:cr")}catch{}toast("A senha foi alterada. Entre novamente.")}throw e}}
 async function admLogin(u,p){try{await crpc("cf_admin_data",{p_u:u,p_p:p})}catch(e){return toast(e===400||e===404||e===401||e===403?"Login ou senha incorretos":"Sem conexão com o servidor")}
  CRED=[u,p];try{sessionStorage.setItem("cf:cr",JSON.stringify(CRED))}catch{}
  const L=crm.d;if(!ls.get("cf:imp",0)&&(Object.keys(L.cl).length||L.ev.length)){try{await crpc("cf_admin_import",{p_u:u,p_p:p,p_cl:L.cl,p_ev:L.ev});ls.set("cf:imp",1)}catch{}}
@@ -500,10 +500,11 @@ function tabDat(){const cl=Object.entries(crm.d.cl);
 function tabCli(){const cl=Object.entries(crm.d.cl).sort((a,b)=>b[1].last-a[1].last);
  return`<div class="sec">Clientes (${cl.length})</div><p class="note">Mostra só os clientes registrados neste navegador.</p>`+(cl.map(([k,c])=>{const h=c.h||[...new Set([c.first,c.last])],dias=[...new Set(h.map(t=>new Date(t).toLocaleDateString("pt-BR")))];
   return`<div class="ord"><div class="ord__t"><b>${esc(c.nome)}</b><span>${esc(c.tel)}</span></div><p>${h.length} entrada(s) de dados · ${c.n} compra(s)</p><p>Dias: ${dias.join(", ")}</p><a class="btn btn--wa add" target="_blank" rel="noopener" href="${wl(c.tel,"Olá, "+c.nome.split(" ")[0]+"!")}">WhatsApp</a></div>`}).join("")||'<p class="note">Nenhum cliente ainda.</p>')}
+function tabPw(){return`<div class="sec">Alterar senha</div><p class="note">A nova senha vale em todos os aparelhos. Quem estiver com o painel aberto precisará entrar de novo.</p><div class="fg" style="margin-top:12px"><label class="ff c6"><input id="pw0" type="password" placeholder=" " autocomplete="current-password"><span>Senha atual</span></label><label class="ff c6"><input id="pw1" type="password" placeholder=" " autocomplete="new-password"><span>Nova senha (mín. 6 caracteres)</span></label><label class="ff c6"><input id="pw2" type="password" placeholder=" " autocomplete="new-password"><span>Repita a nova senha</span></label></div><button class="btn btn--solid big" data-pw style="margin-top:16px">Alterar senha</button>`}
 function admShow(){
  if(!ON()){adm.innerHTML=`<div class="dh"><h2>Painel</h2>${X}</div><div class="admb"><div class="fg" style="margin-top:20px"><label class="ff c6"><input id="lu" placeholder=" " autocomplete="username"><span>Login</span></label><label class="ff c6"><input id="lp" type="password" placeholder=" " autocomplete="current-password"><span>Senha</span></label></div><button class="btn btn--solid big" data-login style="margin-top:16px">Entrar</button></div>`;return}
  const a=alerts().length;
- adm.innerHTML=`<div class="dh"><h2>Painel</h2>${X}</div><div class="adtabs">${[["res","Resumo"+(a?" ("+a+")":"")],["cat",galOn()?"Galeria":"Catálogo"],["cli","Clientes"],["dat","Datas especiais"]].map(([k,l])=>`<button class="chip" data-tab="${k}" aria-pressed="${k===tab}">${l}</button>`).join("")}<button class="chip" data-out>Sair</button></div><div class="admb">${{res:tabRes,cat:tabCat,cli:tabCli,dat:tabDat}[tab]()}</div>`}
+ adm.innerHTML=`<div class="dh"><h2>Painel</h2>${X}</div><div class="adtabs">${[["res","Resumo"+(a?" ("+a+")":"")],["cat",galOn()?"Galeria":"Catálogo"],["cli","Clientes"],["pw","Senha"],["dat","Datas especiais"]].map(([k,l])=>`<button class="chip" data-tab="${k}" aria-pressed="${k===tab}">${l}</button>`).join("")}<button class="chip" data-out>Sair</button></div><div class="admb">${{res:tabRes,cat:tabCat,cli:tabCli,pw:tabPw,dat:tabDat}[tab]()}</div>`}
 const rsz=f=>new Promise(r=>{const i=new Image();i.onload=()=>{const k=Math.min(1,700/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);r(c.toDataURL("image/webp",.78))};i.src=URL.createObjectURL(f)});
 async function psave(){const g=i=>$("#"+i,adm),name=g("pn").value.trim();if(!name)return toast("Informe o nome");
  const v=g("pp").value,o={name,category:g("pc").value.trim(),description:g("pd").value.trim(),price:v===""?null:+v},f=g("pf").files[0];if(f)o.image=await rsz(f);
@@ -515,6 +516,10 @@ adm.addEventListener("click",async e=>{if(e.target===adm)return e.stopPropagatio
  else if(b("data-out")){CRED=null;try{sessionStorage.removeItem("cf:cr")}catch{}admShow()}
  else if(x=b("data-tab")){tab=x.dataset.tab;try{await admSync()}catch{}admShow()}
  else if(b("data-gal")){const g=!galOn();ls.set("cf:gal",g);galApply();admShow();crpc("cf_admin_set",{p_u:CRED[0],p_p:CRED[1],p_key:"gal",p_val:g}).catch(()=>toast("Não foi possível salvar online"))}
+ else if(b("data-pw")){const a=$("#pw0").value,n=$("#pw1").value;
+  if(n.length<6)return toast("A nova senha precisa ter pelo menos 6 caracteres");if(n!==$("#pw2").value)return toast("As senhas novas não conferem");
+  try{await crpc("cf_admin_passwd",{p_u:CRED[0],p_p:a,p_new:n})}catch{return toast("Senha atual incorreta")}
+  CRED[1]=n;try{sessionStorage.setItem("cf:cr",JSON.stringify(CRED))}catch{}admShow();toast("Senha alterada em todos os aparelhos")}
  else if(b("data-psave"))psave();
  else if(b("data-pnew")){edit=null;admShow()}
  else if(x=b("data-pedit")){edit=x.dataset.pedit;admShow();adm.scrollTo(0,0)}
