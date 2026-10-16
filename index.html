@@ -503,7 +503,7 @@ async function psave(){const g=i=>$("#"+i,adm),name=g("pn").value.trim();if(!nam
  if(edit){if(SEED.some(s=>s.id===edit))PX.edit[edit]={...PX.edit[edit],...o};else{const i=PX.add.findIndex(s=>s.id===edit);PX.add[i]={...PX.add[i],...o}}}
  else{if(!f)return toast("Escolha uma foto");PX.add.push({id:"n-"+Date.now(),...o})}
  ls.set("cf:px",PX);pxPush();products=applyProd();renderTrack();edit=null;admShow();toast("Produto salvo")}
-adm.addEventListener("click",async e=>{const t=e.target,b=k=>t.closest(`[${k}]`);let x;
+adm.addEventListener("click",async e=>{if(e.target===adm)return e.stopPropagation();const t=e.target,b=k=>t.closest(`[${k}]`);let x;
  if(b("data-login"))admLogin($("#lu").value.trim(),$("#lp").value)
  else if(b("data-out")){CRED=null;try{sessionStorage.removeItem("cf:cr")}catch{}admShow()}
  else if(x=b("data-tab")){tab=x.dataset.tab;try{await admSync()}catch{}admShow()}
@@ -525,7 +525,7 @@ const GALERIA_PADRAO=false;
 const galOn=()=>{const v=ls.get("cf:gal",null);return v===null?GALERIA_PADRAO:!!v};
 const galApply=()=>{const g=galOn();document.body.classList.toggle("gal",g);document.querySelectorAll('a[href="#catalogo"],#catalogo h2.title').forEach(e=>e.textContent=g?"Galeria":"Catálogo")};galApply();
 $("#fab").classList.add("on");
-crpc("cf_get_settings",{}).then(r=>{if(!r)return;if(r.gal!==undefined){ls.set("cf:gal",!!r.gal);galApply()}if(r.px){Object.assign(PX,r.px);ls.set("cf:px",PX);products=applyProd();renderTrack()}}).catch(()=>{});
+crpc("cf_get_settings",{}).then(r=>{if(!r)return;if(r.rst&&ls.get("cf:rst",0)!==r.rst){crm.d={ev:[],cl:{}};crm.save();ls.set("cf:rst",r.rst);ls.set("cf:imp",1)}if(r.gal!==undefined){ls.set("cf:gal",!!r.gal);galApply()}if(r.px){Object.assign(PX,r.px);ls.set("cf:px",PX);products=applyProd();renderTrack()}}).catch(()=>{});
 /* todo botão de WhatsApp pede nome e telefone antes */
 const wag=$("#wag");let wurl="";
 const wform=m=>`<div class="ch"><div><h2>Quer deixar seu contato?</h2><p>É opcional. Se preencher, a Carol Flores te atende com mais agilidade.</p></div><button class="cx" data-close aria-label="Fechar"><svg class="ic"><use href="#i-x"/></svg></button></div><div class="cb"><div class="fg"><label class="ff c6"><input id="gn" placeholder=" " autocomplete="name" value="${esc(m.nome)}"><span>Seu nome (opcional)</span></label><label class="ff c6"><input id="gt" type="tel" inputmode="tel" autocomplete="tel" placeholder=" " value="${esc(m.tel)}"><span>Telefone (opcional)</span></label></div></div><div class="cf"><button class="btn btn--wa big" data-gsend><svg class="ic fill"><use href="#i-wa"/></svg>Ir para o WhatsApp</button></div>`;
